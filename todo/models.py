@@ -12,3 +12,12 @@ class Task(models.Model):
         if self.due_at is None:
             return False
         return self.due_at < dt
+
+
+class HighScore(models.Model):
+    game = models.CharField(max_length=64)
+    score = models.IntegerField()
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.game} - {self.score} (@{self.created_at})"

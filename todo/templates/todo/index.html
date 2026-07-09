@@ -33,8 +33,26 @@
 
         <div>
           <a href="{% url 'index' %}?order=due">Sort by Due Date</a> |
-          <a href="{% url 'index' %}?order=post">Sort by Posted Date</a> |
-          <a href="{% url 'snake' %}">Play Snake Game</a>
+          <a href="{% url 'index' %}?order=post">Sort by Posted Date</a>
+        </div>
+
+        <div class="game-buttons" aria-label="Games">
+          <a class="game-btn" href="{% url 'snake' %}">
+            <span class="icon">🐍</span>
+            <span>スネーク</span>
+          </a>
+          <a class="game-btn" href="{% url 'shateki' %}">
+            <span class="icon">🎯</span>
+            <span>射的ゲーム</span>
+          </a>
+          <a class="game-btn" href="{% url 'matoate' %}">
+            <span class="icon">❓</span>
+            <span>クイズ</span>
+          </a>
+          <a class="game-btn" href="{% url 'kingyo' %}">
+            <span class="icon">🎏</span>
+            <span>金魚すくい</span>
+          </a>
         </div>
 
         {% for task in tasks %}
