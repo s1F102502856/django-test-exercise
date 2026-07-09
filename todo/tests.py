@@ -1,5 +1,6 @@
 from django.test import TestCase, Client
 from django.utils import timezone
+from django.urls import reverse  # ← reverse をインポート
 from datetime import datetime
 from todo.models import Task
 
@@ -116,6 +117,21 @@ class TodoViewTestCase(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_delete_task(self):
+        """削除機能のテスト（追加分）"""
+        task = Task(title='Delete Test Task')
+        task.save()
+
+        client = Client()
+        # /<task_id>/delete にPOSTしてタスクを削除する
+        response = client.post('/{}/delete'.format(task.pk))
+
+        # 削除後はトップ画面（/）にリダイレクトされることを確認
+        self.assertRedirects(response, '/')
+        
+        # データベースからタスクが本当に消えているか確認
+        self.assertFalse(Task.objects.filter(pk=task.pk).exists())
+
     def test_update_get_success(self):
         task = Task(title='task', due_at=timezone.make_aware(datetime(2024, 7, 1, 12, 0, 0)))
         task.save()
@@ -139,4 +155,3 @@ class TodoViewTestCase(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.title, 'updated task')
         self.assertEqual(task.due_at, timezone.make_aware(datetime(2024, 7, 2, 13, 30, 0)))
-

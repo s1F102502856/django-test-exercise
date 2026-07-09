@@ -7,6 +7,40 @@
     <meta charset="UTF-8">
     <meta name="author" content="INIAD">
     <link rel="stylesheet" href="{% static 'todo/style.css' %}">
+    <style>
+      .delete-warning {
+        margin-top: 1.2rem;
+        padding: 0.8rem 1rem;
+        border: 2px solid #ff2bd6;
+        box-shadow: 0 0 10px #ff2bd6, 0 0 20px #ff2bd6, inset 0 0 8px #00f0ff;
+        background: rgba(0, 0, 0, 0.85);
+        color: #e6f7ff;
+        max-width: 500px;
+        border-radius: 8px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        line-height: 1.6;
+      }
+
+      .delete-warning .delete-link {
+        display: inline-block;
+        margin-top: 0.75rem;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid #00f0ff;
+        box-shadow: 0 0 8px #00f0ff, 0 0 16px rgba(0, 240, 255, 0.4);
+        color: #00f0ff;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .delete-warning .delete-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0 12px #ff2bd6, 0 0 20px #00f0ff;
+        background: #ff2bd6;
+        color: #fff;
+      }
+    </style>
   </head>
 
   <body>
@@ -26,7 +60,13 @@
     <div>
       <a href="{% url 'index' %}">Top</a>
       | <a href="{% url 'update' task.id %}">Edit</a>
-      | <a href="{% url 'delete' task.id %}">Delete</a>
+    </div>
+
+    <div class="delete-warning">
+      <p style="color: #ff2bd6; margin-bottom: 0.5rem;">[Mission Brief: Task Terminated]</p>
+      <p>エージェント、最終シグナルを受信。指定オブジェクト（{{ task.title }}）の永久デリート・プロトコルが承認されました。この操作を実行すると、オブジェクトのすべてのデータはサーバーのダークセクターへとパージされ、復元は不可能です。</p>
+      <p style="color: #ff3333; margin-top: 0.5rem; font-weight: bold;">[WARNING: PERMANENT ERASE]<br>本当にこのタスクをターミネートしますか？</p>
+      <a class="delete-link" href="{% url 'delete' task.id %}">EXECUTE: DELETE</a>
     </div>
   </body>
 
