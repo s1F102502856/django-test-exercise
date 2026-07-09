@@ -6,49 +6,63 @@
     <title>To Do Application</title>
     <meta charset="UTF-8">
     <meta name="author" content="INIAD">
+    <link rel="stylesheet" href="{% static 'todo/style.css' %}">
   </head>
 
   <body>
     <h1>Sample To Do Application</h1>
-    <p>You can submit tasks from the following form.</p>
-    <form action="{% url 'index' %}" method="post">
-      {% csrf_token %}
-      <div>
-        <label for="titleInput">Title</label><br>
-        <input id="titleInput" name="title" type="text" placeholder="Input title">
-      </div>
-      <div>
-        <label for="dueInput">Due at:</label><br>
-        <input id="dueInput" name="due_at" type="datetime-local">
-      </div>
-      <div>
-        <button type="submit">Submit</button>
-      </div>
-    </form>
-    <br>
+    <div class="minesweeper-container">
+      <div class="main-panel">
+        <p>You can submit tasks from the following form.</p>
+        <form action="{% url 'index' %}" method="post">
+          {% csrf_token %}
+          <div>
+            <label for="titleInput">Title</label><br>
+            <input id="titleInput" name="title" type="text" placeholder="Input title">
+          </div>
+          <div>
+            <label for="dueInput">Due at:</label><br>
+            <input id="dueInput" name="due_at" type="datetime-local">
+          </div>
+          <div>
+            <button type="submit">Submit</button>
+          </div>
+        </form>
+        <br>
 
-    <div>
-      <a href="{% url 'index' %}?order=due">Sort by Due Date</a> |
-      <a href="{% url 'index' %}?order=post">Sort by Posted Date</a> |
-      <a href="{% url 'snake' %}">Play Snake Game</a>
-    </div>
+        <div>
+          <a href="{% url 'index' %}?order=due">Sort by Due Date</a> |
+          <a href="{% url 'index' %}?order=post">Sort by Posted Date</a> |
+          <a href="{% url 'snake' %}">Play Snake Game</a>
+        </div>
 
-    {% for task in tasks %}
-    <div class="text">
-      <h2><a href="{% url 'detail' task.id %}">{{ task.title }}</a></h2>
-      <ul>
-        <li>Posted at: {{ task.posted_at }}</li>
-        {% if task.due_at %} 
-        <li>Due at: {{ task.due_at }}</li>
-        {% endif %}
-        {% if task.completed %} 
-        <li>Status: Completed</li>
-        {% else %}
-        <li>Status: Not Completed</li>
-        {% endif %}
-      </ul>
+        {% for task in tasks %}
+        <div class="text">
+          <h2><a href="{% url 'detail' task.id %}">{{ task.title }}</a></h2>
+          <ul>
+            <li>Posted at: {{ task.posted_at }}</li>
+            {% if task.due_at %} 
+            <li>Due at: {{ task.due_at }}</li>
+            {% endif %}
+            {% if task.completed %} 
+            <li>Status: Completed</li>
+            {% else %}
+            <li>Status: Not Completed</li>
+            {% endif %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="minesweeper-panel">
+        <h2>Minesweeper</h2>
+        <p>Click a cell to reveal. Right click to flag.</p>
+        <div id="minesweeper-board"></div>
+        <div id="minesweeper-status"></div>
+        <button id="minesweeper-reset" type="button">Reset</button>
+      </div>
     </div>
-    {% endfor %}
   </body>
+  <script src="{% static 'todo/minesweeper.js' %}"></script>
 
 </html>
