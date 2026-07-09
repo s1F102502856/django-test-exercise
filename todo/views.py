@@ -58,3 +58,7 @@ def delete(request, task_id):
 
     task.delete()
     return redirect(index)
+
+
+def snake(request):
+    return render(request, 'todo/snake.html')
