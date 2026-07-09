@@ -1,0 +1,206 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クイズ</title>
+  <link rel="stylesheet" href="{% static 'todo/style.css' %}">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .matoate-card {
+      width: min(100%, 520px);
+      background: rgba(255, 255, 255, 0.95);
+      color: #0f172a;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .matoate-card h1 {
+      margin-top: 0;
+      color: #0f172a;
+    }
+
+    .matoate-card input {
+      width: 100%;
+      margin: 12px 0;
+      box-sizing: border-box;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .message {
+      min-height: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .message.success {
+      color: #15803d;
+    }
+
+    .message.error {
+      color: #dc2626;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      color: #475569;
+      font-size: 0.95rem;
+    }
+
+    .hint {
+      font-size: 1.05rem;
+      margin-bottom: 8px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="matoate-card">
+    <h1>クイズ</h1>
+    <p>ヒントを見て、正解の日本語を当てるゲームです。5回以内に答えられるとクリアです。</p>
+    <div class="meta">
+      <span>残り回数: <strong id="remaining">5</strong></span>
+      <span>難易度: かんたん</span>
+    </div>
+    <div class="hint" id="hint"></div>
+    <input id="guess-input" type="text" maxlength="10" placeholder="答えを入力してください">
+    <div class="controls">
+      <button id="guess-button" type="button">予想する</button>
+      <button id="reset-button" type="button">もう一回</button>
+      <button id="back-button" class="back-link-button" data-href="{% url 'index' %}">トップに戻る</button>
+    </div>
+    <div id="message" class="message"></div>
+    <p>候補の単語:</p>
+    <ul id="word-list"></ul>
+  </div>
+
+  <script>
+    const words = [
+      { word: 'りんご', hint: '赤い果物です。' },
+      { word: 'いぬ', hint: '人の友達としてよく飼われます。' },
+      { word: 'さくら', hint: '春に美しく咲く花です。' },
+      { word: 'たこ', hint: '海の中でよく知られる生き物です。' },
+      { word: 'あめ', hint: '空から降る冷たいものです。' },
+    ];
+
+    const hintElement = document.getElementById('hint');
+    const remainingElement = document.getElementById('remaining');
+    const messageElement = document.getElementById('message');
+    const guessInput = document.getElementById('guess-input');
+    const wordListElement = document.getElementById('word-list');
+    const guessButton = document.getElementById('guess-button');
+    const resetButton = document.getElementById('reset-button');
+
+    let answer = '';
+    let remaining = 5;
+    let finished = false;
+
+    function pickWord() {
+      const selected = words[Math.floor(Math.random() * words.length)];
+      answer = selected.word;
+      hintElement.textContent = `ヒント: ${selected.hint}`;
+      wordListElement.innerHTML = '';
+      words.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = item.word;
+        wordListElement.appendChild(li);
+      });
+    }
+
+    function updateMessage(text, kind = '') {
+      messageElement.textContent = text;
+      messageElement.className = `message ${kind}`.trim();
+    }
+
+    function resetGame() {
+      remaining = 5;
+      finished = false;
+      remainingElement.textContent = remaining;
+      guessInput.value = '';
+      updateMessage('新しい問題です。ヒントを見て答えてください。');
+      pickWord();
+      guessInput.focus();
+    }
+
+    function submitGuess() {
+      if (finished) {
+        updateMessage('クイズは終了しました。もう一回を押してください。', 'error');
+        return;
+      }
+
+      const guess = guessInput.value.trim();
+      if (!guess) {
+        updateMessage('答えを入力してください。', 'error');
+        return;
+      }
+
+      if (guess === answer) {
+        finished = true;
+        updateMessage(`正解です！「${answer}」でした。`, 'success');
+        // save high score (higher remaining => better)
+        try { fetch('{% url "save_score" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'matoate', score: remaining }) }); } catch (e) {}
+        return;
+      }
+
+      remaining -= 1;
+      remainingElement.textContent = remaining;
+      if (remaining <= 0) {
+        finished = true;
+        updateMessage(`残念！正解は「${answer}」でした。`, 'error');
+        try { fetch('{% url "save_score" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'matoate', score: 0 }) }); } catch (e) {}
+        return;
+      }
+
+      updateMessage(`違います。あと${remaining}回です。`, 'error');
+      guessInput.value = '';
+      guessInput.focus();
+    }
+
+    guessButton.addEventListener('click', submitGuess);
+    resetButton.addEventListener('click', resetGame);
+    guessInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        submitGuess();
+      }
+    });
+
+    resetGame();
+
+    // back button behavior: stop and navigate with fade
+    const backBtn = document.getElementById('back-button');
+    if (backBtn) {
+      backBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        const href = this.getAttribute('data-href') || '/';
+        const card = document.querySelector('.matoate-card');
+        if (card) { card.style.transition = 'opacity 0.25s ease'; card.style.opacity = '0'; }
+        setTimeout(() => { window.location.href = href; }, 260);
+      });
+    }
+  </script>
+</body>
+</html>

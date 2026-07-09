@@ -1,0 +1,239 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>金魚すくい</title>
+  <link rel="stylesheet" href="{% static 'todo/style.css' %}">
+  <style>
+    .kingyo-card { width:min(100%,720px); margin:24px auto; background:rgba(255,255,255,0.95); color:#0f172a; padding:20px; border-radius:12px; box-shadow:0 12px 32px rgba(0,0,0,.12); }
+    .pond { position:relative; height:340px; background:linear-gradient(180deg,#c9ecff 0%,#8ad2ff 35%,#66b9ff 100%); border-radius:10px; overflow:hidden; border:1px solid rgba(0,0,0,.08); box-shadow: inset 0 10px 20px rgba(255,255,255,0.25); }
+    .pond::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 40% 20%, rgba(255,255,255,0.18), transparent 18%), radial-gradient(circle at 70% 60%, rgba(255,255,255,0.14), transparent 15%), linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0) 55%); pointer-events:none; mix-blend-mode:screen; opacity:.75; }
+    .kingyo { position:absolute; width:70px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; transform-origin:center; transition:transform 180ms ease, left 180ms ease, top 180ms ease; }
+    /* top-down view: elegant fish body with fins and flowing tail */
+    .kingyo .body { width:70px; height:32px; border-radius:50% 40% 50% 40%; background:linear-gradient(120deg, rgba(255,255,255,0.96) 5%, #ffe7e7 25%, #ffb8b8 60%, #ff8282 100%); box-shadow: inset -4px -4px 10px rgba(0,0,0,0.08), inset 0 0 18px rgba(255,255,255,0.45); position:relative; overflow:hidden; }
+    .kingyo .body::before { content:''; position:absolute; left:8px; top:50%; transform:translateY(-50%); width:12px; height:14px; background:#ff4b4b; border-radius:50% 30% 30% 50%; }
+    .kingyo .body .fin { position:absolute; width:18px; height:8px; background:rgba(255,255,255,0.45); border-radius:50%; }
+    .kingyo .body .fin.left { left:24px; top:8px; transform:rotate(20deg); }
+    .kingyo .body .fin.right { right:16px; top:20px; transform:rotate(-22deg); }
+    .kingyo .eye { position:absolute; left:22px; top:8px; width:6px; height:6px; background:#2b1b1b; border-radius:50%; box-shadow:0 0 0 2px rgba(255,255,255,0.35); }
+    .kingyo .tail { position:absolute; right:-12px; top:8px; width:22px; height:18px; background:linear-gradient(90deg,#ff8b8b,#ff4b4b); border-radius:0 50% 50% 0; transform-origin:left center; }
+    .kingyo.splash { filter: drop-shadow(0 6px 6px rgba(0,0,0,0.12)); }
+    .controls { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+    .meta { display:flex; gap:12px; align-items:center; color:#475569; margin-top:8px }
+    .poi { position:absolute; width:64px; height:64px; pointer-events:none; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; font-size:28px; mix-blend-mode:normal; z-index:10; }
+    .poi .scoop-ring { width:56px; height:56px; border-radius:50%; background:rgba(255,255,255,0.08); border:4px solid rgba(255,255,255,0.9); box-shadow:0 6px 14px rgba(0,0,0,0.12) inset; transition: border-color 120ms ease, transform 120ms ease; }
+    .poi.broken { opacity:0.7; transform:translate(-50%,-50%) scale(0.92) rotate(-10deg); animation: broken-shake 0.12s ease-in-out infinite alternate; }
+    .poi.broken .scoop-ring { border-color:#f87171; box-shadow:0 0 0 8px rgba(248,113,113,0.35); background:rgba(255,255,255,0.12); }
+    .poi.flash .scoop-ring { border-color: #ffd700; }
+    .poi::after { content:''; position:absolute; left:50%; top:80%; width:6px; height:20px; background:#8b5e3c; transform:translateX(-50%); border-radius:4px; }
+    .poi.broken::after { background:#f87171; }
+    @keyframes broken-shake { from { transform:translate(-50%,-50%) scale(0.92) rotate(-7deg); } to { transform:translate(-50%,-50%) scale(0.92) rotate(-13deg); } }
+  </style>
+</head>
+<body>
+  <div class="kingyo-card">
+    <h1>金魚すくい</h1>
+    <p>制限時間内に金魚をすくって得点を競おう。お玉（スコップ）は3回まで使えます。</p>
+    <div class="meta">
+      <div>得点: <strong id="score">0</strong></div>
+      <div>お玉残: <strong id="scoops">3</strong></div>
+    </div>
+    <div class="pond" id="pond" aria-label="金魚の池"></div>
+
+    <div class="controls">
+      <button id="start">開始</button>
+      <button id="stop">停止</button>
+      <button id="reset">リセット</button>
+      <button id="back-button" class="back-link-button" data-href="{% url 'index' %}">トップに戻る</button>
+    </div>
+
+    <div id="message" style="margin-top:8px; font-weight:700"></div>
+
+    <script>
+      const pond = document.getElementById('pond');
+      const scoreEl = document.getElementById('score');
+      const scoopsEl = document.getElementById('scoops');
+      const messageEl = document.getElementById('message');
+      const startBtn = document.getElementById('start');
+      const stopBtn = document.getElementById('stop');
+      const resetBtn = document.getElementById('reset');
+
+      let spawnId = null;
+      let score = 0;
+      let scoops = 3;
+      let running = false;
+
+      // catch probability starts high, decays after each successful catch
+      let catchProbability = 0.9;
+      const decayFactor = 0.85;
+
+      // fish management
+      const fishList = new Map();
+      let fishCounter = 0;
+      let rafId = null;
+
+      // poi (お玉) element follows cursor inside pond — use scoop ring instead of emoji
+      const poi = document.createElement('div');
+      poi.className = 'poi';
+      poi.innerHTML = '<div class="scoop-ring"></div>';
+      pond.appendChild(poi);
+      let poiBroken = false;
+
+      function random(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+      function createFish() {
+        const id = ++fishCounter;
+        const el = document.createElement('div');
+        el.className = 'kingyo';
+        el.innerHTML = `<div class="body"><div class="fin left"></div><div class="fin right"></div><div class="eye"></div><div class="tail"></div></div>`;
+        const rect = pond.getBoundingClientRect();
+        const x = random(12, Math.max(12, rect.width - 80));
+        const y = random(8, Math.max(8, rect.height - 56));
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        pond.appendChild(el);
+
+        // velocity (uniform speed)
+        const speed = 0.32; // px per ms
+        let angle = Math.random() * Math.PI * 2;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed * 0.6;
+        const phase = Math.random() * Math.PI * 2;
+        const wobble = 0.02 + Math.random() * 0.03;
+
+        const fish = { id, el, x, y, vx, vy, speed, phase, wobble };
+        fishList.set(id, fish);
+
+        // clicking fish directly should not catch; catching only via poi click
+        el.addEventListener('click', (e) => { e.stopPropagation(); });
+
+        // auto-remove after some time
+        fish._lifetime = setTimeout(() => removeFish(id), 6000 + Math.random() * 4000);
+      }
+
+      function removeFish(id) {
+        const f = fishList.get(id);
+        if (!f) return;
+        clearTimeout(f._lifetime);
+        if (f.el.parentElement) f.el.parentElement.removeChild(f.el);
+        fishList.delete(id);
+      }
+
+      function animate(time) {
+        const rect = pond.getBoundingClientRect();
+        fishList.forEach((f) => {
+          f.phase += f.wobble;
+          f.x += f.vx * 16;
+          f.y += f.vy * 16 + Math.sin(f.phase) * 1.4;
+          // bounce
+          if (f.x < 4) { f.x = 4; f.vx = Math.abs(f.vx); }
+          if (f.x > rect.width - 72) { f.x = rect.width - 72; f.vx = -Math.abs(f.vx); }
+          if (f.y < 4) { f.y = 4; f.vy = Math.abs(f.vy); }
+          if (f.y > rect.height - 40) { f.y = rect.height - 40; f.vy = -Math.abs(f.vy); }
+          f.el.style.left = f.x + 'px';
+          f.el.style.top = f.y + 'px';
+          // graceful body motion
+          const angle = Math.atan2(f.vy + Math.cos(f.phase) * 0.08, f.vx) * 180 / Math.PI + 180;
+          const scale = 0.97 + Math.sin(f.phase * 2) * 0.015;
+          f.el.style.transform = `rotate(${angle}deg) scale(${scale})`;
+          const tail = f.el.querySelector('.tail');
+          if (tail) tail.style.transform = `rotate(${Math.sin(f.phase * 2) * 24}deg)`;
+        });
+        rafId = requestAnimationFrame(animate);
+      }
+
+      pond.addEventListener('mousemove', (e) => {
+        const r = pond.getBoundingClientRect();
+        const cx = e.clientX - r.left;
+        const cy = e.clientY - r.top;
+        poi.style.left = cx + 'px';
+        poi.style.top = cy + 'px';
+      });
+
+      // attempt catch when clicking inside pond and poi overlaps fish
+      pond.addEventListener('click', (e) => {
+        if (!running) return;
+        if (poiBroken) { updateMessage('ポイが壊れています。リセットしてください。'); return; }
+        const pr = poi.getBoundingClientRect();
+        let caughtAny = false;
+        for (const [id, f] of Array.from(fishList)) {
+          const fr = f.el.getBoundingClientRect();
+          // check overlap
+          const overlap = !(fr.right < pr.left || fr.left > pr.right || fr.bottom < pr.top || fr.top > pr.bottom);
+          if (overlap) {
+            caughtAny = true;
+            // determine success by probability
+            if (Math.random() < catchProbability) {
+              // success
+              score += 1;
+              scoreEl.textContent = score;
+              // reduce probability for next catches
+              catchProbability = Math.max(0.05, catchProbability * decayFactor);
+              removeFish(id);
+              updateMessage('うまくすくえた！');
+              poi.classList.add('flash');
+              setTimeout(() => poi.classList.remove('flash'), 1000);
+            } else {
+              // failure: poi breaks, life decreases
+              scoops -= 1;
+              scoopsEl.textContent = scoops;
+              poiBroken = true;
+              poi.classList.remove('flash');
+              poi.classList.add('broken');
+              catchProbability = 0.9;
+              updateMessage('💥 すくえなかった！ポイが壊れた。');
+              setTimeout(() => { poiBroken = false; poi.classList.remove('broken'); updateMessage('ポイを直しました。'); }, 1200);
+              removeFish(id); // fish escapes
+              if (scoops <= 0) { endGame('ポイが全部壊れた。ゲーム終了'); }
+            }
+            break; // handle only one fish per click
+          }
+        }
+        if (!caughtAny) {
+          updateMessage('金魚に重ねてクリックしてください。');
+        }
+      });
+
+      function updateMessage(txt) { messageEl.textContent = txt; }
+
+      function startGame() {
+        if (running) return;
+        running = true;
+        score = 0; scoops = 3; catchProbability = 0.9; scoreEl.textContent = score; scoopsEl.textContent = scoops;
+        updateMessage('開始！ポイを金魚に重ねてクリックしてください。');
+        // spawn fish periodically (no time limit)
+        spawnId = setInterval(() => createFish(), 700);
+        createFish(); createFish();
+        if (!rafId) rafId = requestAnimationFrame(animate);
+      }
+
+      function stopGame() {
+        running = false;
+        if (spawnId) { clearInterval(spawnId); spawnId = null; }
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        fishList.forEach((f) => { if (f._lifetime) clearTimeout(f._lifetime); if (f.el.parentElement) f.el.parentElement.removeChild(f.el); });
+        fishList.clear();
+      }
+
+      function resetGame() { stopGame(); score = 0; scoops = 3; catchProbability = 0.9; scoreEl.textContent = score; scoopsEl.textContent = scoops; updateMessage('準備完了。開始を押してください。');
+        // reset poi
+        poiBroken = false; poi.classList.remove('broken'); }
+
+      function endGame(text) { stopGame(); updateMessage(text + ` 得点: ${score} 点`); try{ fetch('{% url "save_score" %}', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ game:'kingyo', score }) }); }catch(e){} }
+
+      startBtn.addEventListener('click', startGame);
+      stopBtn.addEventListener('click', () => { stopGame(); updateMessage(`途中終了。得点 ${score} 点`); try{ fetch('{% url "save_score" %}', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ game:'kingyo', score }) }); }catch(e){} });
+      resetBtn.addEventListener('click', resetGame);
+
+      // back behavior
+      const backBtn = document.getElementById('back-button');
+      if (backBtn) {
+        backBtn.addEventListener('click', function(e){ e.preventDefault(); stopGame(); const href=this.getAttribute('data-href')||'/'; const card=document.querySelector('.kingyo-card'); if(card){ card.style.transition='opacity 0.25s ease'; card.style.opacity='0'; } setTimeout(()=>{ window.location.href=href }, 260); });
+      }
+
+      resetGame();
+    </script>
+</body>
+</html>

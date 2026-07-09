@@ -64,6 +64,39 @@ button:hover {
   background-color: #1f5a7a;
 }
 
+/* Game buttons (iconified links) */
+.game-buttons {
+  margin: 12px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.game-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}
+.game-btn .icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.back-link-button {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
 div.text {
   background: #fff;
   border: 1px solid #dcdcdc;

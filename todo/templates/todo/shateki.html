@@ -1,0 +1,142 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>射的ゲーム</title>
+  <link rel="stylesheet" href="{% static 'todo/style.css' %}">
+  <style>
+    body { min-height:100vh; display:flex; justify-content:center; align-items:center; padding:24px; box-sizing:border-box; }
+    .card { width:min(100%,640px); background:rgba(255,255,255,0.95); color:#0f172a; border-radius:12px; padding:20px; box-shadow:0 12px 30px rgba(0,0,0,.18); }
+    h1 { margin-top:0 }
+    .arena { position:relative; height:320px; background:linear-gradient(180deg,#e6f7ff,#ffffff); border-radius:8px; overflow:hidden; border:1px solid #e2e8f0 }
+    .target { position:absolute; width:56px; height:56px; border-radius:50%; background:#ef4444; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; cursor:pointer; user-select:none }
+    .controls { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap }
+    .meta { display:flex; justify-content:space-between; margin-top:8px; color:#475569 }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>射的ゲーム</h1>
+    <p>出てくる的をクリックして得点を稼ぎます。30秒の間に何点取れるか挑戦！</p>
+    <div class="meta">
+      <div>残り時間: <strong id="time">30</strong>s</div>
+      <div>得点: <strong id="score">0</strong></div>
+    </div>
+    <div class="arena" id="arena"></div>
+    <div class="controls">
+      <button id="start">開始</button>
+      <button id="stop">停止</button>
+      <button id="reset">リセット</button>
+      <button id="back-button" class="back-link-button" data-href="{% url 'index' %}">トップに戻る</button>
+    </div>
+    <div id="message" style="margin-top:8px; font-weight:700"></div>
+  </div>
+
+  <script>
+    const arena = document.getElementById('arena');
+    const timeEl = document.getElementById('time');
+    const scoreEl = document.getElementById('score');
+    const messageEl = document.getElementById('message');
+    const startBtn = document.getElementById('start');
+    const stopBtn = document.getElementById('stop');
+    const resetBtn = document.getElementById('reset');
+
+    let score = 0;
+    let timeLeft = 30;
+    let running = false;
+    let timerId = null;
+    let spawnInterval = null;
+
+    function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min }
+
+    function spawnTarget() {
+      const t = document.createElement('div');
+      t.className = 'target';
+      t.textContent = randomInt(1,9);
+      const rect = arena.getBoundingClientRect();
+      const x = randomInt(8, rect.width - 64);
+      const y = randomInt(8, rect.height - 64);
+      t.style.left = x + 'px';
+      t.style.top = y + 'px';
+      arena.appendChild(t);
+
+      function remove() { if (t.parentElement) t.parentElement.removeChild(t) }
+
+      t.addEventListener('click', () => {
+        score += 10;
+        scoreEl.textContent = score;
+        remove();
+      });
+
+      // auto-remove after 2.2s
+      setTimeout(remove, 2200);
+    }
+
+    function startGame() {
+      if (running) return;
+      running = true;
+      messageEl.textContent = '';
+      score = 0; scoreEl.textContent = score;
+      timeLeft = 30; timeEl.textContent = timeLeft;
+
+      timerId = setInterval(() => {
+        timeLeft -= 1;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          stopGame();
+          messageEl.textContent = `終了！得点は ${score} 点です。`;
+          try { fetch('{% url "save_score" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'shateki', score }) }); } catch (e) {}
+        }
+      }, 1000);
+
+      spawnInterval = setInterval(() => {
+        spawnTarget();
+      }, 700);
+
+      // spawn a few immediately
+      spawnTarget(); spawnTarget();
+    }
+
+    function stopGame() {
+      running = false;
+      clearInterval(timerId); timerId = null;
+      clearInterval(spawnInterval); spawnInterval = null;
+      // remove remaining targets
+      Array.from(arena.querySelectorAll('.target')).forEach(t => t.remove());
+    }
+
+    function resetGame() {
+      stopGame();
+      score = 0; scoreEl.textContent = score;
+      timeLeft = 30; timeEl.textContent = timeLeft;
+      messageEl.textContent = '準備完了。開始を押してください。';
+    }
+
+    startBtn.addEventListener('click', startGame);
+    stopBtn.addEventListener('click', () => { stopGame(); messageEl.textContent = `途中終了。得点 ${score} 点` });
+    // also save on manual stop
+    stopBtn.addEventListener('click', () => { try { fetch('{% url "save_score" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'shateki', score }) }); } catch (e) {} });
+    resetBtn.addEventListener('click', resetGame);
+
+    // ensure game is stopped before navigating back; add a smooth fade
+    const backButton = document.getElementById('back-button');
+    if (backButton) {
+      backButton.addEventListener('click', function (e) {
+        e.preventDefault();
+        stopGame();
+        const href = this.getAttribute('data-href') || '/';
+        const card = document.querySelector('.card');
+        if (card) {
+          card.style.transition = 'opacity 0.25s ease';
+          card.style.opacity = '0';
+        }
+        setTimeout(() => { window.location.href = href; }, 260);
+      });
+    }
+
+    resetGame();
+  </script>
+</body>
+</html>

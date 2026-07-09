@@ -64,6 +64,7 @@
   <div id="score">Score: 0</div>
   <div id="message">Use arrow keys or WASD to move.</div>
   <button id="restart">Restart</button>
+  <button id="back-button" class="back-link-button" data-href="{% url 'index' %}">トップに戻る</button>
   <script>
     const container = document.getElementById('game-container');
     const scoreText = document.getElementById('score');
@@ -142,6 +143,8 @@
       gameOver = true;
       message.innerText = text;
       if (intervalId) clearInterval(intervalId);
+      // save high score
+      try { fetch('{% url "save_score" %}', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: 'snake', score }) }); } catch (e) {}
     }
 
     function restart() {
@@ -172,6 +175,19 @@
 
     restartButton.addEventListener('click', restart);
     restart();
+
+    // back button: stop game then fade and navigate to index
+    const backBtn = document.getElementById('back-button');
+    if (backBtn) {
+      backBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        const href = this.getAttribute('data-href') || '/';
+        document.body.style.transition = 'opacity 0.25s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = href; }, 260);
+      });
+    }
   </script>
 </body>
 
