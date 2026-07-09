@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <rect width="100%" height="100%" fill="#FFF0F5" rx="24"/>
+  <text x="50%" y="52%" font-size="48" text-anchor="middle" fill="#4b2e3b" font-family="Arial">🐶</text>
+  <text x="50%" y="82%" font-size="24" text-anchor="middle" fill="#4b2e3b" font-family="Arial">Dog 10</text>
+</svg>
