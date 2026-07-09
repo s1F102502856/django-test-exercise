@@ -117,6 +117,12 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# 追加: ワークスペース直下の '犬' フォルダを静的ファイル検索パスに含める
+from pathlib import Path as _Path
+STATICFILES_DIRS = [
+    BASE_DIR / '犬',
+]
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
