@@ -11,7 +11,10 @@
 
   <body>
     <div id="dog-overlay" aria-hidden="true"></div>
+    
+    <!-- 【競合解決】日本語タイトルに統一しました -->
     <h1>Sample To Do アプリケーション</h1>
+    
     <div class="minesweeper-container">
       <div class="main-panel">
         <p>以下のフォームからタスクを登録できます。</p>
@@ -33,6 +36,7 @@
         <br>
 
         <div>
+          <!-- 【競合解決】並び替えボタンも日本語の記述に統一しました -->
           <a href="{% url 'index' %}?order=due">期限が近い順に並び替え</a> |
           <a href="{% url 'index' %}?order=post">投稿が新しい順に並び替え</a>
         </div>
