@@ -12,7 +12,7 @@
   <body>
     <div id="dog-overlay" aria-hidden="true"></div>
     
-    <!-- 【競合解決】日本語タイトルに統一しました -->
+    <!-- 日本語タイトルに綺麗に統一しました -->
     <h1>Sample To Do アプリケーション</h1>
     
     <div class="minesweeper-container">
@@ -22,7 +22,7 @@
           {% csrf_token %}
           <div>
             <label for="titleInput">タイトル</label><br>
-            <!-- 【変更箇所1】requiredを追加して、タイトルが空欄のまま送信できないようにしました -->
+            <!-- 【変更箇所1】空欄での送信を防止 -->
             <input id="titleInput" name="title" type="text" placeholder="タイトルを入力してください" required>
           </div>
           <div>
@@ -36,7 +36,7 @@
         <br>
 
         <div>
-          <!-- 【競合解決】並び替えボタンも日本語の記述に統一しました -->
+          <!-- 並び替えボタンも日本語に統一しました -->
           <a href="{% url 'index' %}?order=due">期限が近い順に並び替え</a> |
           <a href="{% url 'index' %}?order=post">投稿が新しい順に並び替え</a>
         </div>
@@ -69,7 +69,7 @@
             <li>期限: {{ task.due_at }}</li>
             {% endif %}
             
-            <!-- 【変更箇所2】ステータスに絵文字（🎉と⏳）を追加し、見た目を分かりやすくしました -->
+            <!-- 【変更箇所2】ステータスに絵文字を追加 -->
             {% if task.completed %} 
             <li class="status-completed">ステータス: 🎉 完了</li>
             {% else %}
@@ -81,7 +81,7 @@
       </div>
 
       <div class="minesweeper-panel">
-        <!-- 【変更箇所3】マインスイーパーのタイトルに爆弾の絵文字（💣）を追加しました -->
+        <!-- 【変更箇所3】タイトルに爆弾の絵文字を追加 -->
         <h2>💣 マインスイーパー</h2>
         <p>マスをクリックしてオープン。右クリックで旗を立てます。</p>
         <div id="minesweeper-board"></div>
