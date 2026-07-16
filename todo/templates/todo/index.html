@@ -19,7 +19,8 @@
           {% csrf_token %}
           <div>
             <label for="titleInput">タイトル</label><br>
-            <input id="titleInput" name="title" type="text" placeholder="タイトルを入力してください">
+            <!-- 【変更箇所1】requiredを追加して、タイトルが空欄のまま送信できないようにしました -->
+            <input id="titleInput" name="title" type="text" placeholder="タイトルを入力してください" required>
           </div>
           <div>
             <label for="dueInput">期限:</label><br>
@@ -63,10 +64,12 @@
             {% if task.due_at %} 
             <li>期限: {{ task.due_at }}</li>
             {% endif %}
+            
+            <!-- 【変更箇所2】ステータスに絵文字（🎉と⏳）を追加し、見た目を分かりやすくしました -->
             {% if task.completed %} 
-            <li>ステータス: 完了</li>
+            <li class="status-completed">ステータス: 🎉 完了</li>
             {% else %}
-            <li>ステータス: 未完了</li>
+            <li class="status-pending">ステータス: ⏳ 未完了</li>
             {% endif %}
           </ul>
         </div>
@@ -74,7 +77,8 @@
       </div>
 
       <div class="minesweeper-panel">
-        <h2>マインスイーパー</h2>
+        <!-- 【変更箇所3】マインスイーパーのタイトルに爆弾の絵文字（💣）を追加しました -->
+        <h2>💣 マインスイーパー</h2>
         <p>マスをクリックしてオープン。右クリックで旗を立てます。</p>
         <div id="minesweeper-board"></div>
         <div id="minesweeper-status"></div>
