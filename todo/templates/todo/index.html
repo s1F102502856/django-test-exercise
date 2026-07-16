@@ -64,5 +64,96 @@
     </div>
   </body>
   <script src="{% static 'todo/minesweeper.js' %}"></script>
+<<<<<<< Updated upstream
+=======
+  <script{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+
+  <head>
+    <title>To Do アプリケーション</title>
+    <meta charset="UTF-8">
+    <meta name="author" content="INIAD">
+    <link rel="stylesheet" href="{% static 'todo/style.css' %}">
+  </head>
+
+  <body>
+    <div id="dog-overlay" aria-hidden="true"></div>
+    <h1>Sample To Do アプリケーション</h1>
+    <div class="minesweeper-container">
+      <div class="main-panel">
+        <p>以下のフォームからタスクを登録できます。</p>
+        <form action="{% url 'index' %}" method="post">
+          {% csrf_token %}
+          <div>
+            <label for="titleInput">タイトル</label><br>
+            <input id="titleInput" name="title" type="text" placeholder="タイトルを入力してください">
+          </div>
+          <div>
+            <label for="dueInput">期限:</label><br>
+            <input id="dueInput" name="due_at" type="datetime-local">
+          </div>
+          <div>
+            <button type="submit">追加する</button>
+          </div>
+        </form>
+        <br>
+
+        <div>
+          <a href="{% url 'index' %}?order=due">期限が近い順に並び替え</a> |
+          <a href="{% url 'index' %}?order=post">投稿が新しい順に並び替え</a>
+        </div>
+
+        <div class="game-buttons" aria-label="Games">
+          <a class="game-btn" href="{% url 'snake' %}">
+            <span class="icon">🐍</span>
+            <span>スネーク</span>
+          </a>
+          <a class="game-btn" href="{% url 'shateki' %}">
+            <span class="icon">🎯</span>
+            <span>射的ゲーム</span>
+          </a>
+          <a class="game-btn" href="{% url 'matoate' %}">
+            <span class="icon">❓</span>
+            <span>クイズ</span>
+          </a>
+          <a class="game-btn" href="{% url 'kingyo' %}">
+            <span class="icon">🎏</span>
+            <span>金魚すくい</span>
+          </a>
+        </div>
+
+        {% for task in tasks %}
+        <div class="text">
+          <h2><a href="{% url 'detail' task.id %}">{{ task.title }}</a></h2>
+          <ul>
+            <li>投稿日時: {{ task.posted_at }}</li>
+            {% if task.due_at %} 
+            <li>期限: {{ task.due_at }}</li>
+            {% endif %}
+            {% if task.completed %} 
+            <li>ステータス: 完了</li>
+            {% else %}
+            <li>ステータス: 未完了</li>
+            {% endif %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="minesweeper-panel">
+        <h2>マインスイーパー</h2>
+        <p>マスをクリックしてオープン。右クリックで旗を立てます。</p>
+        <div id="minesweeper-board"></div>
+        <div id="minesweeper-status"></div>
+        <button id="minesweeper-reset" type="button">リセット</button>
+      </div>
+    </div>
+  </body>
+  <script src="{% static 'todo/minesweeper.js' %}"></script>
+  <script src="{% static 'todo/dog-scatter.js' %}"></script>
+>>>>>>> Stashed changes
+
+</html> src="{% static 'todo/dog-scatter.js' %}"></script>
 
 </html>
