@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>動画編集</title>
+  <style>
+    body { font-family: sans-serif; margin:0; background:#0f172a; color:#f8fafc; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 24px; border-radius: 20px; background: #111827; box-shadow: 0 14px 40px rgba(0,0,0,.25); }
+    h1 { margin-top:0; }
+    .box { background:#1f2937; border:1px solid #334155; border-radius:14px; padding:16px; margin-top:14px; }
+    input[type="file"] { margin: 10px 0; }
+    video { width:100%; max-height:420px; border-radius:12px; background:#000; }
+    canvas { width:100%; max-height:420px; border-radius:12px; background:#000; }
+    .controls { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    button, .link-btn { border:0; padding:10px 14px; border-radius:999px; cursor:pointer; font-size:14px; text-decoration:none; color:#fff; background:#2563eb; }
+    .muted { background:#64748b; }
+    label { display:block; margin-top:8px; font-size:13px; color:#cbd5e1; }
+    input[type="range"] { width:100%; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .small { font-size:13px; color:#cbd5e1; }
+    .editor-panel { display:grid; grid-template-columns:1fr 260px; gap:16px; }
+    .asset-list { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow:auto; }
+    .asset-item { padding:8px; border-radius:10px; background:#374151; cursor:pointer; }
+    .asset-item.active { outline:2px solid #38bdf8; }
+    .control-group { margin-top:8px; }
+    .control-group label { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .control-group input[type="range"] { width:120px; }
+    .control-group input[type="text"] { width:100%; padding:8px; border-radius:8px; border:1px solid #64748b; background:#111827; color:#fff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>動画編集</h1>
+    <p class="small">動画を読み込んで、再生位置を指定して切り出し・ダウンロードできます。</p>
+
+    <div class="box">
+      <input id="video-file" type="file" accept="video/*">
+      <div class="controls">
+        <button id="load-btn">動画を読み込む</button>
+        <a class="link-btn muted" href="{% url 'index' %}">トップへ戻る</a>
+      </div>
+    </div>
+
+    <div class="box">
+      <video id="video-preview" controls></video>
+      <div class="row" style="margin-top:10px;">
+        <label>開始秒 <input id="start-time" type="number" min="0" step="0.1" value="0"></label>
+        <label>終了秒 <input id="end-time" type="number" min="0" step="0.1" value="5"></label>
+      </div>
+      <div class="controls">
+        <button id="trim-btn">トリミングしてダウンロード</button>
+      </div>
+      <p id="status" class="small">動画を選択してください。</p>
+    </div>
+
+    <div class="box">
+      <h2>簡易動画作成</h2>
+      <p class="small">画像やテキストを配置して、短い動画を作成できます。</p>
+      <div class="editor-panel">
+        <div>
+          <canvas id="creator-canvas" width="640" height="360"></canvas>
+          <div class="controls">
+            <button id="add-text-btn">テキスト追加</button>
+            <button id="add-image-btn" class="muted">画像追加</button>
+            <button id="create-btn">動画を作成してダウンロード</button>
+          </div>
+          <p id="create-status" class="small">作成するにはボタンを押してください。</p>
+        </div>
+        <div>
+          <h3>編集パネル</h3>
+          <div id="asset-list" class="asset-list"></div>
+          <div id="property-panel" class="control-group">
+            <label>テキスト <input id="text-input" type="text" value="Hello"></label>
+            <label>X <input id="pos-x" type="range" min="0" max="640" value="180"></label>
+            <label>Y <input id="pos-y" type="range" min="0" max="360" value="140"></label>
+            <label>幅 <input id="size-w" type="range" min="40" max="320" value="180"></label>
+            <label>高さ <input id="size-h" type="range" min="20" max="120" value="60"></label>
+            <label>回転 <input id="rotation" type="range" min="-180" max="180" value="0"></label>
+            <label>透明度 <input id="opacity" type="range" min="0" max="100" value="100"></label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('video-file');
+    const video = document.getElementById('video-preview');
+    const startInput = document.getElementById('start-time');
+    const endInput = document.getElementById('end-time');
+    const status = document.getElementById('status');
+    const loadBtn = document.getElementById('load-btn');
+    const trimBtn = document.getElementById('trim-btn');
+    const createBtn = document.getElementById('create-btn');
+    const createStatus = document.getElementById('create-status');
+    const creatorCanvas = document.getElementById('creator-canvas');
+    const creatorCtx = creatorCanvas.getContext('2d');
+    const addTextBtn = document.getElementById('add-text-btn');
+    const addImageBtn = document.getElementById('add-image-btn');
+    const assetList = document.getElementById('asset-list');
+    const textInput = document.getElementById('text-input');
+    const posXInput = document.getElementById('pos-x');
+    const posYInput = document.getElementById('pos-y');
+    const sizeWInput = document.getElementById('size-w');
+    const sizeHInput = document.getElementById('size-h');
+    const rotationInput = document.getElementById('rotation');
+    const opacityInput = document.getElementById('opacity');
+    let videoUrl = null;
+    let duration = 0;
+    let selectedAssetId = null;
+    let assets = [];
+
+    function createAsset(type, extra = {}) {
+      const id = `asset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const asset = { id, type, x: 180, y: 140, width: 180, height: 60, rotation: 0, opacity: 1, text: 'Hello', image: null, ...extra };
+      assets.push(asset);
+      selectedAssetId = id;
+      renderAssets();
+      return asset;
+    }
+
+    function renderAssets() {
+      assetList.innerHTML = '';
+      assets.forEach((asset) => {
+        const item = document.createElement('div');
+        item.className = `asset-item ${asset.id === selectedAssetId ? 'active' : ''}`;
+        item.textContent = asset.type === 'text' ? `テキスト: ${asset.text}` : '画像';
+        item.addEventListener('click', () => {
+          selectedAssetId = asset.id;
+          syncPropertyPanel();
+          renderAssets();
+        });
+        assetList.appendChild(item);
+      });
+    }
+
+    function syncPropertyPanel() {
+      const asset = assets.find((item) => item.id === selectedAssetId);
+      if (!asset) return;
+      textInput.value = asset.text || '';
+      posXInput.value = asset.x;
+      posYInput.value = asset.y;
+      sizeWInput.value = asset.width;
+      sizeHInput.value = asset.height;
+      rotationInput.value = asset.rotation;
+      opacityInput.value = Math.round(asset.opacity * 100);
+    }
+
+    function updateSelectedAsset() {
+      const asset = assets.find((item) => item.id === selectedAssetId);
+      if (!asset) return;
+      asset.text = textInput.value;
+      asset.x = parseInt(posXInput.value, 10);
+      asset.y = parseInt(posYInput.value, 10);
+      asset.width = parseInt(sizeWInput.value, 10);
+      asset.height = parseInt(sizeHInput.value, 10);
+      asset.rotation = parseInt(rotationInput.value, 10);
+      asset.opacity = parseInt(opacityInput.value, 10) / 100;
+      renderAssets();
+    }
+
+    [textInput, posXInput, posYInput, sizeWInput, sizeHInput, rotationInput, opacityInput].forEach((input) => {
+      input.addEventListener('input', updateSelectedAsset);
+    });
+
+    addTextBtn.addEventListener('click', () => createAsset('text', { text: 'New Text', x: 180, y: 140, width: 220, height: 60 }));
+
+    addImageBtn.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const asset = createAsset('image', { image: img, width: 160, height: 120, x: 220, y: 120 });
+            syncPropertyPanel();
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    });
+
+    loadBtn.addEventListener('click', () => {
+      if (fileInput.files[0]) {
+        const file = fileInput.files[0];
+        if (videoUrl) URL.revokeObjectURL(videoUrl);
+        videoUrl = URL.createObjectURL(file);
+        video.src = videoUrl;
+        video.load();
+        video.onloadedmetadata = () => {
+          duration = video.duration;
+          startInput.max = duration.toFixed(2);
+          endInput.max = duration.toFixed(2);
+          endInput.value = Math.min(5, duration).toFixed(2);
+          status.textContent = `動画を読み込みました。長さ: ${duration.toFixed(2)} 秒`;
+        };
+      }
+    });
+
+    trimBtn.addEventListener('click', () => {
+      if (!videoUrl) {
+        status.textContent = '先に動画を読み込んでください。';
+        return;
+      }
+      const start = parseFloat(startInput.value) || 0;
+      const end = parseFloat(endInput.value) || 0;
+      if (end <= start) {
+        status.textContent = '終了秒は開始秒より大きくしてください。';
+        return;
+      }
+      const clip = document.createElement('video');
+      clip.src = videoUrl;
+      clip.currentTime = start;
+      clip.onloadeddata = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext('2d');
+        const mediaRecorder = new MediaRecorder(canvas.captureStream(30));
+        const chunks = [];
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'trimmed-video.webm';
+          link.click();
+          status.textContent = 'トリミングした動画をダウンロードしました。';
+        };
+        mediaRecorder.start();
+        const drawFrame = () => {
+          if (!clip.paused && clip.currentTime < end) {
+            ctx.drawImage(clip, 0, 0, canvas.width, canvas.height);
+            requestAnimationFrame(drawFrame);
+          } else {
+            mediaRecorder.stop();
+          }
+        };
+        clip.play().then(() => drawFrame());
+      };
+    });
+
+    function drawCreatorScene(elapsed) {
+      creatorCtx.clearRect(0, 0, creatorCanvas.width, creatorCanvas.height);
+      creatorCtx.fillStyle = '#0f172a';
+      creatorCtx.fillRect(0, 0, creatorCanvas.width, creatorCanvas.height);
+
+      creatorCtx.save();
+      creatorCtx.globalAlpha = 0.15;
+      creatorCtx.fillStyle = '#38bdf8';
+      creatorCtx.fillRect(0, 0, creatorCanvas.width, creatorCanvas.height);
+      creatorCtx.restore();
+
+      assets.forEach((asset) => {
+        creatorCtx.save();
+        creatorCtx.globalAlpha = asset.opacity;
+        creatorCtx.translate(asset.x, asset.y);
+        creatorCtx.rotate((asset.rotation * Math.PI) / 180);
+        if (asset.type === 'text') {
+          creatorCtx.font = `${asset.height}px sans-serif`;
+          creatorCtx.fillStyle = '#ffffff';
+          creatorCtx.textBaseline = 'top';
+          creatorCtx.fillText(asset.text, 0, 0);
+        } else if (asset.type === 'image' && asset.image) {
+          creatorCtx.drawImage(asset.image, 0, 0, asset.width, asset.height);
+        }
+        creatorCtx.restore();
+      });
+
+      creatorCtx.fillStyle = '#fbbf24';
+      creatorCtx.font = '24px sans-serif';
+      creatorCtx.fillText(`Time: ${elapsed.toFixed(1)}s`, 30, 30);
+    }
+
+    createBtn.addEventListener('click', () => {
+      const width = creatorCanvas.width;
+      const height = creatorCanvas.height;
+      const stream = creatorCanvas.captureStream(30);
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'created-video.webm';
+        link.click();
+        createStatus.textContent = '動画を作成してダウンロードしました。';
+      };
+
+      mediaRecorder.start();
+      const startTime = Date.now();
+      const draw = () => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        drawCreatorScene(elapsed);
+        if (elapsed < 4) {
+          requestAnimationFrame(draw);
+        } else {
+          mediaRecorder.stop();
+        }
+      };
+      createStatus.textContent = '作成中...';
+      draw();
+    });
+
+    createAsset('text', { text: 'Hello', x: 180, y: 140, width: 180, height: 60, rotation: 0 });
+    createAsset('text', { text: 'Edit Me', x: 220, y: 220, width: 200, height: 36, rotation: 0 });
+    syncPropertyPanel();
+  </script>
+</body>
+</html>

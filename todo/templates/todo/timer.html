@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>タイマー</title>
+  <style>
+    body {
+      font-family: sans-serif; margin: 0; min-height: 100vh;
+      background: linear-gradient(135deg, #fef3c7, #fcd34d);
+      color: #111827;
+      transition: background 0.6s ease, color 0.6s ease;
+    }
+    body.theme-morning { background: linear-gradient(135deg, #ffe8b3, #ffd166); color: #3f2a0a; }
+    body.theme-day { background: linear-gradient(135deg, #e7fbe6, #86efac); color: #164e1f; }
+    body.theme-night { background: linear-gradient(135deg, #1f2937, #4b5563); color: #fef3c7; }
+    .wrap {
+      max-width: 760px; margin: 40px auto; padding: 24px; border-radius: 24px;
+      background: rgba(255,255,255,0.9); box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+      transition: background 0.6s ease, color 0.6s ease;
+    }
+    body.theme-morning .wrap { background: rgba(255,251,235,0.92); }
+    body.theme-day .wrap { background: rgba(247,254,240,0.94); }
+    body.theme-night .wrap { background: rgba(17,24,39,0.82); color: #fef3c7; }
+    h1 { margin-top: 0; }
+    .timer { font-size: 88px; font-weight: 700; text-align: center; margin: 24px 0; letter-spacing: 0.08em; }
+    .timer.small { font-size: 72px; }
+    .mode-switch { display:flex; justify-content:center; gap:8px; margin-bottom:16px; }
+    .mode-btn { background:#e2e8f0; color:#0f172a; }
+    body.theme-morning .mode-btn { background:#f8d86a; color:#3f2a0a; }
+    body.theme-day .mode-btn { background:#bbf7d0; color:#14532d; }
+    body.theme-night .mode-btn { background:#374151; color:#fef3c7; }
+    .mode-btn.active { background:#2563eb; color:#fff; }
+    body.theme-morning .mode-btn.active { background:#e67e22; }
+    body.theme-day .mode-btn.active { background:#16a34a; }
+    body.theme-night .mode-btn.active { background:#f59e0b; color:#111827; }
+    .controls { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    button, .link-btn { border:0; padding:12px 16px; border-radius:999px; cursor:pointer; font-size:15px; text-decoration:none; color:#fff; background:#2563eb; }
+    body.theme-morning button, body.theme-morning .link-btn { background:#f59e0b; color:#fff; }
+    body.theme-day button, body.theme-day .link-btn { background:#22c55e; color:#fff; }
+    body.theme-night button, body.theme-night .link-btn { background:#fbbf24; color:#111827; }
+    button.secondary, .link-btn.secondary { background:#64748b; }
+    body.theme-morning button.secondary, body.theme-morning .link-btn.secondary { background:#8b5e3c; }
+    body.theme-day button.secondary, body.theme-day .link-btn.secondary { background:#4b5563; }
+    body.theme-night button.secondary, body.theme-night .link-btn.secondary { background:#6b7280; color:#fef3c7; }
+    .input-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin: 16px 0; }
+    input { padding:10px 12px; border-radius:999px; border:1px solid #cbd5e1; font-size:15px; width:120px; }
+    body.theme-night input { background:#111827; color:#fef3c7; border-color:#6b7280; }
+    .message { text-align:center; margin-top:14px; font-weight:600; color:#b91c1c; }
+    body.theme-day .message { color:#b45309; }
+    body.theme-night .message { color:#fde68a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>タイマー</h1>
+    <p style="text-align:center;">時間をセットして、カウントダウンを始めましょう。</p>
+
+    <div class="mode-switch">
+      <button class="mode-btn active" id="mode-timer">タイマー</button>
+      <button class="mode-btn" id="mode-stopwatch">ストップウォッチ</button>
+    </div>
+
+    <div id="timer-section">
+      <div class="input-row">
+        <input id="minutes" type="number" min="0" max="99" value="5" placeholder="分">
+        <input id="seconds" type="number" min="0" max="59" value="0" placeholder="秒">
+      </div>
+      <div class="timer" id="timer-display">05:00</div>
+      <div class="controls">
+        <button id="start">開始</button>
+        <button id="pause" class="secondary">一時停止</button>
+        <button id="reset" class="secondary">リセット</button>
+      </div>
+    </div>
+
+    <div id="stopwatch-section" style="display:none;">
+      <div class="timer small" id="stopwatch-display">00:00:00.00</div>
+      <div class="controls">
+        <button id="stopwatch-start">開始</button>
+        <button id="stopwatch-stop" class="secondary">停止</button>
+        <button id="stopwatch-reset" class="secondary">リセット</button>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:12px;">
+      <a class="link-btn secondary" href="{% url 'index' %}">トップへ戻る</a>
+    </div>
+    <div class="message" id="message"></div>
+  </div>
+
+  <script>
+    const minutesInput = document.getElementById('minutes');
+    const secondsInput = document.getElementById('seconds');
+    const timerDisplay = document.getElementById('timer-display');
+    const stopwatchDisplay = document.getElementById('stopwatch-display');
+    const messageEl = document.getElementById('message');
+    const timerSection = document.getElementById('timer-section');
+    const stopwatchSection = document.getElementById('stopwatch-section');
+    const modeTimerBtn = document.getElementById('mode-timer');
+    const modeStopwatchBtn = document.getElementById('mode-stopwatch');
+
+    let totalSeconds = 300;
+    let remainingSeconds = 300;
+    let timerId = null;
+    let running = false;
+
+    let stopwatchSeconds = 0;
+    let stopwatchId = null;
+    let stopwatchRunning = false;
+    let stopwatchCentiseconds = 0;
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function formatStopwatch(sec) {
+      const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+      const s = String(Math.floor(sec % 60)).padStart(2, '0');
+      const cs = String(Math.floor((sec % 1) * 100)).padStart(2, '0');
+      return `${h}:${m}:${s}.${cs}`;
+    }
+
+    function updateDisplay() {
+      timerDisplay.textContent = formatTime(remainingSeconds);
+    }
+
+    function updateStopwatchDisplay() {
+      stopwatchDisplay.textContent = formatStopwatch(stopwatchSeconds);
+    }
+
+    function setMessage(text) {
+      messageEl.textContent = text;
+    }
+
+    function applyThemeByTime() {
+      const hour = new Date().getHours();
+      document.body.classList.remove('theme-morning', 'theme-day', 'theme-night');
+      if (hour >= 5 && hour < 12) {
+        document.body.classList.add('theme-morning');
+      } else if (hour >= 12 && hour < 18) {
+        document.body.classList.add('theme-day');
+      } else {
+        document.body.classList.add('theme-night');
+      }
+    }
+
+    function startTimer() {
+      if (running) return;
+      if (remainingSeconds <= 0) {
+        setMessage('時間をセットしてください。');
+        return;
+      }
+      running = true;
+      setMessage('カウントダウン中です。');
+      timerId = setInterval(() => {
+        remainingSeconds -= 1;
+        updateDisplay();
+        if (remainingSeconds <= 0) {
+          clearInterval(timerId);
+          timerId = null;
+          running = false;
+          setMessage('時間です！');
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      if (!running) return;
+      clearInterval(timerId);
+      timerId = null;
+      running = false;
+      setMessage('一時停止しました。');
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      remainingSeconds = totalSeconds;
+      updateDisplay();
+      setMessage('リセットしました。');
+    }
+
+    function startStopwatch() {
+      if (stopwatchRunning) return;
+      stopwatchRunning = true;
+      setMessage('ストップウォッチ動作中です。');
+      stopwatchId = setInterval(() => {
+        stopwatchSeconds += 0.01;
+        updateStopwatchDisplay();
+      }, 10);
+    }
+
+    function stopStopwatch() {
+      if (!stopwatchRunning) return;
+      clearInterval(stopwatchId);
+      stopwatchId = null;
+      stopwatchRunning = false;
+      setMessage('ストップウォッチを停止しました。');
+    }
+
+    function resetStopwatch() {
+      stopStopwatch();
+      stopwatchSeconds = 0;
+      updateStopwatchDisplay();
+      setMessage('ストップウォッチをリセットしました。');
+    }
+
+    function switchMode(mode) {
+      if (mode === 'stopwatch') {
+        timerSection.style.display = 'none';
+        stopwatchSection.style.display = 'block';
+        modeTimerBtn.classList.remove('active');
+        modeStopwatchBtn.classList.add('active');
+      } else {
+        timerSection.style.display = 'block';
+        stopwatchSection.style.display = 'none';
+        modeTimerBtn.classList.add('active');
+        modeStopwatchBtn.classList.remove('active');
+      }
+    }
+
+    document.getElementById('start').addEventListener('click', () => {
+      const minutes = parseInt(minutesInput.value, 10) || 0;
+      const seconds = parseInt(secondsInput.value, 10) || 0;
+      totalSeconds = minutes * 60 + seconds;
+      remainingSeconds = totalSeconds;
+      updateDisplay();
+      startTimer();
+    });
+
+    document.getElementById('pause').addEventListener('click', pauseTimer);
+    document.getElementById('reset').addEventListener('click', resetTimer);
+    document.getElementById('stopwatch-start').addEventListener('click', startStopwatch);
+    document.getElementById('stopwatch-stop').addEventListener('click', stopStopwatch);
+    document.getElementById('stopwatch-reset').addEventListener('click', resetStopwatch);
+    modeTimerBtn.addEventListener('click', () => switchMode('timer'));
+    modeStopwatchBtn.addEventListener('click', () => switchMode('stopwatch'));
+
+    applyThemeByTime();
+    updateDisplay();
+    updateStopwatchDisplay();
+  </script>
+</body>
+</html>

@@ -53,6 +53,14 @@
             <span class="icon">🎏</span>
             <span>金魚すくい</span>
           </a>
+          <a class="game-btn" href="{% url 'timer' %}">
+            <span class="icon">⏰</span>
+            <span>タイマー</span>
+          </a>
+          <a class="game-btn" href="{% url 'video_editor' %}">
+            <span class="icon">🎬</span>
+            <span>動画編集</span>
+          </a>
         </div>
 
         {% for task in tasks %}

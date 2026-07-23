@@ -7,6 +7,10 @@ from todo.models import HighScore
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+import base64
+from pathlib import Path
+from PIL import Image
+from io import BytesIO
 
 
 # Create your views here.
@@ -75,6 +79,51 @@ def matoate(request):
 
 def kingyo(request):
     return render(request, 'todo/kingyo.html')
+
+
+def timer(request):
+    return render(request, 'todo/timer.html')
+
+
+def video_editor(request):
+    return render(request, 'todo/video_editor.html')
+
+
+def remove_background(request):
+    return render(request, 'todo/remove_background.html')
+
+
+@csrf_exempt
+def save_transparent_image(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        image_data = payload.get('image', '')
+        if not image_data:
+            return JsonResponse({'error': 'image required'}, status=400)
+        header, encoded = image_data.split(',', 1)
+        image_bytes = base64.b64decode(encoded)
+        img = Image.open(BytesIO(image_bytes)).convert('RGBA')
+
+        width, height = img.size
+        data = img.getdata()
+        new_data = []
+        for item in data:
+            r, g, b, a = item
+            if a < 10:
+                new_data.append((r, g, b, a))
+            elif r > 220 and g > 220 and b > 220:
+                new_data.append((r, g, b, 0))
+            else:
+                new_data.append((r, g, b, a))
+        img.putdata(new_data)
+
+        target_path = Path(__file__).resolve().parent / '魚' / 'sakanatakusan.jpe'
+        img.save(target_path, format='JPEG')
+        return JsonResponse({'ok': True, 'path': str(target_path)})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
