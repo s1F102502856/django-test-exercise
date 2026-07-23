@@ -1,0 +1,168 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>背景透過</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #f6f8fb; color: #0f172a; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 24px; background: #fff; border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.08); }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; margin: 16px 0; }
+    button, .link-btn, label.file-btn { border:0; padding:10px 14px; border-radius:999px; cursor:pointer; font-size:14px; text-decoration:none; color:#fff; background:#2563eb; display:inline-block; }
+    button.secondary, .link-btn.secondary { background:#64748b; }
+    input[type="file"] { display:none; }
+    .panel { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; align-items:start; }
+    .card { border:1px solid #e2e8f0; border-radius:12px; padding:16px; background:#fbfdff; }
+    canvas, img { max-width:100%; border-radius:8px; background:#fff; }
+    .memo { font-size:13px; color:#475569; line-height:1.6; }
+    .dropzone { border:2px dashed #93c5fd; border-radius:12px; padding:20px; text-align:center; background:#f8fbff; color:#1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>背景透過</h1>
+    <p class="memo">画像を選択すると、背景を自動で透過してプレビューできます。完成したら PNG をダウンロードできます。</p>
+
+    <div class="dropzone" id="dropzone">
+      <label class="file-btn" for="file-input">画像を選択</label>
+      <input id="file-input" type="file" accept="image/*">
+      <p style="margin:8px 0 0;">またはここに画像をドラッグ＆ドロップ</p>
+    </div>
+
+    <div class="actions">
+      <button id="process">背景を透過する</button>
+      <button id="download" class="secondary">PNGをダウンロード</button>
+      <a class="link-btn secondary" href="{% url 'kingyo' %}">金魚すくいへ戻る</a>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <h2>元画像</h2>
+        <img id="source-image" alt="元画像">
+      </div>
+      <div class="card">
+        <h2>透過後</h2>
+        <canvas id="result-canvas" width="600" height="400"></canvas>
+      </div>
+    </div>
+    <p id="status" class="memo" style="margin-top:12px;">画像を選択してください。</p>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file-input');
+    const sourceImage = document.getElementById('source-image');
+    const canvas = document.getElementById('result-canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const processBtn = document.getElementById('process');
+    const downloadBtn = document.getElementById('download');
+    const dropzone = document.getElementById('dropzone');
+    let processedDataUrl = null;
+    let currentFileName = 'transparent.png';
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function readFile(file) {
+      if (!file) return;
+      currentFileName = file.name.replace(/\.[^.]+$/, '') + '-transparent.png';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        sourceImage.src = e.target.result;
+        sourceImage.onload = processImage;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function processImage() {
+      const width = sourceImage.naturalWidth || sourceImage.width;
+      const height = sourceImage.naturalHeight || sourceImage.height;
+      canvas.width = width;
+      canvas.height = height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(sourceImage, 0, 0, width, height);
+
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      const bgColor = sampleBackgroundColor(data, width, height);
+      const tolerance = 26;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        if (a < 10) continue;
+        if (isCloseToColor(r, g, b, bgColor, tolerance)) {
+          data[i + 3] = 0;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      processedDataUrl = canvas.toDataURL('image/png');
+      setStatus('透過処理が完了しました。PNGをダウンロードできます。');
+    }
+
+    function sampleBackgroundColor(data, width, height) {
+      const samples = [];
+      const offsets = [0, width - 1, (height - 1) * width, (height - 2) * width + width - 1];
+      for (const offset of offsets) {
+        const i = offset * 4;
+        samples.push([data[i], data[i + 1], data[i + 2]]);
+      }
+      let r = 0, g = 0, b = 0;
+      for (const [rr, gg, bb] of samples) {
+        r += rr; g += gg; b += bb;
+      }
+      return [Math.round(r / samples.length), Math.round(g / samples.length), Math.round(b / samples.length)];
+    }
+
+    function isCloseToColor(r, g, b, bgColor, tolerance) {
+      const [br, bg, bb] = bgColor;
+      return Math.abs(r - br) <= tolerance && Math.abs(g - bg) <= tolerance && Math.abs(b - bb) <= tolerance;
+    }
+
+    fileInput.addEventListener('change', (e) => readFile(e.target.files[0]));
+    processBtn.addEventListener('click', () => {
+      if (!sourceImage.src) {
+        setStatus('先に画像を選択してください。');
+        return;
+      }
+      processImage();
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!processedDataUrl) {
+        setStatus('先に透過処理してください。');
+        return;
+      }
+      const link = document.createElement('a');
+      link.href = processedDataUrl;
+      link.download = currentFileName;
+      link.click();
+      setStatus('ダウンロードしました。');
+    });
+
+    ['dragenter', 'dragover'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#2563eb';
+      });
+    });
+
+    ['dragleave', 'dragend', 'drop'].forEach((eventName) => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#93c5fd';
+      });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file) readFile(file);
+    });
+  </script>
+</body>
+</html>
